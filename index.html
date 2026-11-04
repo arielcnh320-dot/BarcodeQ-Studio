@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcode Studio</title>
+    <meta name="description" content="Códigos de barras, QR, imposición de PDF y manejo de archivos JPEG y PDF. Funciona sin conexión.">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#111733">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Barcode Studio">
+    <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+    <div id="aviso-flotante" class="aviso-flotante" role="status" aria-live="polite"></div>
+
+    <!-- Barra superior -->
+    <div class="panel top-bar">
+        <h1>▮▯▮ Barcode Studio</h1>
+        <span id="lbl-version" class="version-app"></span>
+        <button id="btn-actualizar-app" class="btn" hidden>🔄 Actualizar app</button>
+        <button id="btn-instalar-app" class="btn btn-green" hidden>📲 Instalar app</button>
+    </div>
+
+    <!-- Pestañas (las arma eventos.js a partir de las vistas) -->
+    <div class="panel tab-bar" id="barra-pestanas"></div>
+
+    <div class="panel">
+
+        <!-- Código de barras -->
+        <section id="vista-barras" class="vista" data-titulo="Código de barras">
+            <form data-accion="barras">
+                <label>Tipo<select name="tipo" data-llenar="tipos-barras"></select></label>
+                <label>Contenido<input name="dato" value="ABC-12345" required autocomplete="off"></label>
+                <div class="dos">
+                    <label>Formato<select name="formato"><option value="png">PNG</option><option value="jpg">JPEG</option><option value="svg">SVG</option></select></label>
+                    <label>Resolución (DPI)<input name="dpi" type="number" value="300" min="72" max="1200"></label>
+                </div>
+                <div class="dos">
+                    <label>Barra fina (mm)<input name="modulo" type="number" value="0.33" step="0.01" min="0.05"></label>
+                    <label>Alto (mm)<input name="alto" type="number" value="15" step="0.5" min="3"></label>
+                </div>
+                <label class="fila"><input type="checkbox" name="texto" checked> Mostrar el texto debajo</label>
+                <button class="btn btn-accion">Generar</button>
+            </form>
+            <div class="salida" data-salida><span class="vacio">El código va a aparecer acá.</span></div>
+        </section>
+
+        <!-- QR -->
+        <section id="vista-qr" class="vista" data-titulo="QR">
+            <form data-accion="qr">
+                <label>Contenido (link, texto, vCard…)<textarea name="dato" rows="3" required>https://ejemplo.com</textarea></label>
+                <div class="dos">
+                    <label>Formato<select name="formato"><option value="png">PNG</option><option value="jpg">JPEG</option><option value="svg">SVG</option></select></label>
+                    <label>Corrección de errores<select name="nivel"><option value="L">L (7 %)</option><option value="M" selected>M (15 %)</option><option value="Q">Q (25 %)</option><option value="H">H (30 %)</option></select></label>
+                </div>
+                <div class="dos">
+                    <label>Tamaño de cuadrito (px)<input name="caja" type="number" value="10" min="1" max="60"></label>
+                    <label>Margen (cuadritos)<input name="margen" type="number" value="4" min="0" max="20"></label>
+                </div>
+                <div class="dos">
+                    <label>Color<input name="color" type="color" value="#000000"></label>
+                    <label>Fondo<input name="fondo" type="color" value="#ffffff"></label>
+                </div>
+                <button class="btn btn-accion">Generar</button>
+            </form>
+            <div class="salida" data-salida><span class="vacio">El QR va a aparecer acá.</span></div>
+        </section>
+
+        <!-- Leer códigos -->
+        <section id="vista-leer" class="vista" data-titulo="Leer códigos">
+            <form data-accion="leer">
+                <label>Imagen (JPEG, PNG…) o PDF<input type="file" name="archivo" accept="image/*,.pdf,application/pdf" required></label>
+                <p class="ayuda">Lee QR y códigos de barras. En un PDF revisa todas las páginas.</p>
+                <button class="btn btn-accion">Leer</button>
+            </form>
+            <div class="salida" data-salida><span class="vacio">Los códigos encontrados van a aparecer acá.</span></div>
+        </section>
+
+        <!-- Imposición -->
+        <section id="vista-imponer" class="vista" data-titulo="Imposición">
+            <form data-accion="imponer">
+                <label>PDF<input type="file" name="archivo" accept=".pdf,application/pdf" required></label>
+                <label>Modo<select name="modo" data-llenar="modos"></select></label>
+                <div class="dos">
+                    <label>Pliego<select name="pliego" data-llenar="pliegos"></select></label>
+                    <label class="fila" style="margin-top:22px"><input type="checkbox" name="horizontal"> Horizontal</label>
+                </div>
+                <div class="dos" data-solo-medida>
+                    <label>Ancho (mm)<input name="ancho" type="number" value="210" min="20"></label>
+                    <label>Alto (mm)<input name="alto" type="number" value="297" min="20"></label>
+                </div>
+                <div class="dos" data-solo-grilla>
+                    <label>Columnas<input name="columnas" type="number" value="2" min="1" max="20"></label>
+                    <label>Filas<input name="filas" type="number" value="2" min="1" max="20"></label>
+                </div>
+                <div class="dos">
+                    <label>Calle entre piezas (mm)<input name="calle" type="number" value="4" step="0.5" min="0"></label>
+                    <label>Margen del pliego (mm)<input name="margen" type="number" value="10" step="0.5" min="0"></label>
+                </div>
+                <label>Sangrado incluido en el PDF (mm)<input name="sangrado" type="number" value="0" step="0.5" min="0"></label>
+                <label class="fila"><input type="checkbox" name="marcas" checked> Marcas de corte</label>
+                <button class="btn btn-accion">Imponer</button>
+            </form>
+            <div class="salida" data-salida><span class="vacio">El pliego va a aparecer acá.</span></div>
+        </section>
+
+        <!-- JPEG → PDF -->
+        <section id="vista-img-pdf" class="vista" data-titulo="JPEG → PDF">
+            <form data-accion="img-pdf">
+                <label>Imágenes (se pueden elegir varias)<input type="file" name="archivos" accept="image/*" multiple required></label>
+                <label>Página<select name="pagina"><option value="fit">Del tamaño de la imagen</option><option value="A4">A4</option></select></label>
+                <div class="dos">
+                    <label>DPI de la imagen<input name="dpi" type="number" value="300" min="36" max="1200"></label>
+                    <label>Margen (mm)<input name="margen" type="number" value="0" min="0"></label>
+                </div>
+                <p class="ayuda">Los JPEG y PNG entran sin perder calidad. El DPI define el tamaño de página cuando es "del tamaño de la imagen".</p>
+                <button class="btn btn-accion">Convertir</button>
+            </form>
+            <div class="salida" data-salida><span class="vacio">El PDF va a aparecer acá.</span></div>
+        </section>
+
+        <!-- PDF → JPEG -->
+        <section id="vista-pdf-img" class="vista" data-titulo="PDF → JPEG">
+            <form data-accion="pdf-img">
+                <label>PDF<input type="file" name="archivo" accept=".pdf,application/pdf" required></label>
+                <div class="dos">
+                    <label>DPI<input name="dpi" type="number" value="200" min="36" max="600"></label>
+                    <label>Calidad (1-100)<input name="calidad" type="number" value="90" min="1" max="100"></label>
+                </div>
+                <p class="ayuda">Con más de una página se descarga un ZIP con un JPEG por página.</p>
+                <button class="btn btn-accion">Convertir</button>
+            </form>
+            <div class="salida" data-salida><span class="vacio">El resultado va a aparecer acá.</span></div>
+        </section>
+
+        <!-- Unir PDF -->
+        <section id="vista-unir" class="vista" data-titulo="Unir PDF">
+            <form data-accion="unir">
+                <label>PDF (en el orden en que se eligen)<input type="file" name="archivos" accept=".pdf,application/pdf" multiple required></label>
+                <button class="btn btn-accion">Unir</button>
+            </form>
+            <div class="salida" data-salida><span class="vacio">El PDF unido va a aparecer acá.</span></div>
+        </section>
+
+        <!-- Código en PDF -->
+        <section id="vista-estampar" class="vista" data-titulo="Código en PDF">
+            <form data-accion="estampar">
+                <label>PDF<input type="file" name="archivo" accept=".pdf,application/pdf" required></label>
+                <label>Tipo<select name="tipo" data-llenar="tipos-con-qr"></select></label>
+                <label>Contenido<input name="dato" required autocomplete="off" value="https://ejemplo.com"></label>
+                <div class="dos">
+                    <label>Desde el borde izquierdo (mm)<input name="x" type="number" value="10" step="0.5"></label>
+                    <label>Desde el borde de arriba (mm)<input name="y" type="number" value="10" step="0.5"></label>
+                </div>
+                <div class="dos">
+                    <label>Ancho (mm)<input name="ancho" type="number" value="25" step="0.5" min="5"></label>
+                    <label>Páginas<select name="paginas"><option value="all">Todas</option><option value="first">Solo la primera</option></select></label>
+                </div>
+                <button class="btn btn-accion">Insertar</button>
+            </form>
+            <div class="salida" data-salida><span class="vacio">El PDF va a aparecer acá.</span></div>
+        </section>
+
+    </div>
+
+<script>
+// Versión de la app. Tiene que quedar acá: la app compara esta versión con la del index.html publicado
+// y, si hay una nueva, muestra el botón "🔄 Actualizar app".
+const VERSION_APP = "2026.11.04-1";
+</script>
+<!-- Librerías (copias locales en lib/, funcionan sin conexión) -->
+<script src="lib/pdf-lib.min.js"></script>
+<script src="lib/pdf.min.js"></script>
+<script src="lib/JsBarcode.all.min.js"></script>
+<script src="lib/qrcode.js"></script>
+<script src="lib/jszip.min.js"></script>
+<script src="lib/zxing.min.js"></script>
+<!-- Código de la app, en este orden -->
+<script src="js/constantes_y_textos.js"></script>
+<script src="js/datos.js"></script>
+<script src="js/codigos.js"></script>
+<script src="js/lectura.js"></script>
+<script src="js/imposicion.js"></script>
+<script src="js/pdf_jpeg.js"></script>
+<script src="js/eventos.js"></script>
+<script src="js/inicio.js"></script>
+</body>
+</html>

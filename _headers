@@ -1,0 +1,11 @@
+# Encabezados de seguridad que agrega Netlify a cada archivo de la app.
+# La app no usa ningún sitio externo: todo (librerías incluidas) sale de su propia carpeta. Si algún día se suma
+# una librería de un CDN o un servicio, hay que agregarlo acá en script-src / connect-src.
+# - frame-ancestors / X-Frame-Options: ninguna otra página puede mostrar la app adentro (engaños con clics).
+# - worker-src blob:: pdf.js arma su worker desde lib/ (origen propio); blob: queda por si se necesita.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' blob: data:; manifest-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
