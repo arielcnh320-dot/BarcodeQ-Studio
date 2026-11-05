@@ -66,6 +66,27 @@ const { prueba, fin, abrirApp, crearPdfDePrueba } = require('./comun');
     const escalaEsperada = Math.min(93 * 72 / 25.4 / 200, ((297 - 20 - 4) / 2) * 72 / 25.4 / 300);
     prueba('la página se escala proporcionalmente (texto de 40 pt × escala)', Math.abs(geom[0].tam - 40 * escalaEsperada) < 0.5, `${geom[0].tam} vs ${40 * escalaEsperada}`);
 
+    const enBlanco = await pagina.evaluate(async () => {
+        const d = await PDFLib.PDFDocument.create(); const f = await d.embedFont(PDFLib.StandardFonts.Helvetica);
+        d.addPage([200, 300]).drawText('P1', { x: 20, y: 150, size: 40, font: f });
+        d.addPage([200, 300]); // página en blanco intencional, sin contenido
+        d.addPage([200, 300]).drawText('P3', { x: 20, y: 150, size: 40, font: f });
+        d.addPage([200, 300]).drawText('P4', { x: 20, y: 150, size: 40, font: f });
+        const bytes = new Uint8Array(await d.save());
+        const salida = {};
+        for (const modo of ['nup', 'step', 'booklet']) {
+            try {
+                const g = await imponer(bytes, { modo, pliego: 'A4', columnas: 2, filas: 2 });
+                const doc = await abrirPdfJs(g);
+                const p1 = await doc.getPage(1);
+                salida[modo] = { hojas: doc.numPages, textos: (await p1.getTextContent()).items.filter(t => t.str.trim()).sort((a, b) => a.transform[4] - b.transform[4]).map(t => t.str) };
+            } catch (e) { salida[modo] = 'ERROR: ' + e.message; }
+        }
+        return salida;
+    });
+    prueba('un PDF con una página en blanco se impone sin error (N-up: la página en blanco ocupa su lugar)', enBlanco.nup.hojas === 1 && enBlanco.nup.textos.join() === 'P1,P3,P4', JSON.stringify(enBlanco.nup));
+    prueba('también en "repetir página" y en cuadernillo', enBlanco.step.hojas === 4 && enBlanco.booklet.hojas === 2 && enBlanco.booklet.textos.join() === 'P4,P1', JSON.stringify(enBlanco));
+
     prueba('sin errores de JavaScript durante las pruebas', !errores.length, errores.join(' | '));
     await navegador.close();
     fin();

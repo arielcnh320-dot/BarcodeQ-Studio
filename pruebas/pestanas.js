@@ -8,7 +8,7 @@ const os = require('os');
     const vistaActiva = () => pagina.$$eval('.vista.activa', v => v.map(x => x.id));
 
     const titulos = await pagina.$$eval('#barra-pestanas .btn', b => b.map(x => x.textContent));
-    prueba('hay 9 pestañas', titulos.length === 9, titulos.join(' | '));
+    prueba('hay 10 pestañas', titulos.length === 10, titulos.join(' | '));
     prueba('arranca con una sola vista abierta', (await vistaActiva()).length === 1);
     let todasAbren = true;
     for (let i = 0; i < titulos.length; i++) {
@@ -160,7 +160,7 @@ const os = require('os');
 
     // Teléfono: sin scroll horizontal
     await pagina.setViewportSize({ width: 375, height: 700 });
-    for (const i of [1, 4, 8, 9]) {
+    for (const i of [1, 4, 8, 9, 10]) {
         await pagina.click(`#barra-pestanas .btn:nth-child(${i})`);
     }
     const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

@@ -8,7 +8,7 @@ const fs = require('fs');
 
 const RAIZ = path.resolve(__dirname, '..');
 const PUERTO = process.env.BS_PUERTO || '8766';
-const todas = ['archivos', 'codigos', 'imposicion', 'etiquetas', 'pdf_jpeg', 'pestanas'];
+const todas = ['archivos', 'codigos', 'imposicion', 'etiquetas', 'variables', 'disenador', 'pdf_jpeg', 'pestanas'];
 const elegidas = process.argv.slice(2).length ? process.argv.slice(2) : todas;
 
 function esperarServidor(intentos = 40) {

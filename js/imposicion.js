@@ -62,19 +62,24 @@ async function imponer(bytes, opciones) {
     if (cw <= 0 || ch <= 0) throw new Error("No entran tantas columnas/filas con ese margen y esa calle en el pliego");
 
     const salida = await PDFLib.PDFDocument.create();
-    const incrustadas = await salida.embedPdf(origen, origen.getPageIndices());
+    // pdf-lib no puede copiar una página sin ningún contenido (una página en blanco): esas quedan como lugar
+    // vacío, pero ocupan su lugar en el pliego y se cuentan al armar el cuadernillo.
+    const tamanos = origen.getPageIndices().map(i => origen.getPage(i).getSize());
+    const conContenido = origen.getPageIndices().filter(i => origen.getPage(i).node.Contents());
+    const copiadas = await salida.embedPdf(origen, conContenido);
+    const incrustadas = origen.getPageIndices().map(i => (conContenido.includes(i) ? copiadas[conContenido.indexOf(i)] : null));
 
     for (const cara of planDeCaras(modo, cantidad, columnas, filas)) {
         const pagina = salida.addPage([sw, sh]);
         cara.forEach((nro, k) => {
             if (nro === null) return;
-            const pag = incrustadas[nro];
+            const pag = incrustadas[nro], tam = tamanos[nro];
             const fila = Math.floor(k / columnas), col = k % columnas;
             const celdaX = margenP + col * (cw + calleP), celdaY = margenP + fila * (ch + calleP);
-            const escala = Math.min(cw / pag.width, ch / pag.height);
-            const tw = pag.width * escala, th = pag.height * escala;
+            const escala = Math.min(cw / tam.width, ch / tam.height);
+            const tw = tam.width * escala, th = tam.height * escala;
             const x = celdaX + (cw - tw) / 2, y = celdaY + (ch - th) / 2; // esquina superior izquierda
-            pagina.drawPage(pag, { x, y: sh - (y + th), width: tw, height: th });
+            if (pag) pagina.drawPage(pag, { x, y: sh - (y + th), width: tw, height: th });
             if (marcas) {
                 _marcasDeCorte(pagina, sh, x + sangradoP, y + sangradoP, x + tw - sangradoP, y + th - sangradoP,
                     3 * MM_A_PT, Math.max(sangradoP, 2 * MM_A_PT));

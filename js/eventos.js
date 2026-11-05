@@ -72,6 +72,18 @@ const ACCIONES = {
         return { pdf: r.bytes, nombre: "etiquetas.pdf", nota: `${r.etiquetas} etiquetas en ${r.hojas} hoja${r.hojas === 1 ? "" : "s"} (${r.columnas}×${r.filas} por hoja).${aviso}` };
     },
 
+    async vdp(f, salida) {
+        const entero = nombre => { const v = parseInt(f.elements[nombre].value, 10); return Number.isFinite(v) ? v : null; };
+        const imposicion = marcado(f, "impOn") ? {
+            pliego: texto(f, "impPliego"), horizontal: marcado(f, "impHorizontal"), columnas: numero(f, "impColumnas", 2), filas: numero(f, "impFilas", 2),
+            calle: numero(f, "impCalle", 4), margen: numero(f, "impMargen", 10), marcas: marcado(f, "impMarcas")
+        } : null;
+        const r = await disenador.generar({ desde: entero("desde") || 1, hasta: entero("hasta") || Infinity, imposicion },
+            (i, n) => { salida.textContent = `Generando página ${i} de ${n}…`; });
+        const nota = `${r.paginas} página${r.paginas === 1 ? "" : "s"} con datos variables` + (imposicion ? `, acomodadas en ${r.pliegos} pliego${r.pliegos === 1 ? "" : "s"}.` : ".") + (r.avisos.length ? " " + r.avisos.join(" ") : "");
+        return { pdf: r.bytes, nombre: `${nombreBase(disenador.nombrePlantilla())}-datos-variables.pdf`, nota };
+    },
+
     async unir(f) {
         return { pdf: await unirPdfs(archivosDe(f, "archivos")), nombre: "unido.pdf" };
     },
@@ -176,6 +188,10 @@ document.querySelectorAll("form[data-accion]").forEach(form => {
 });
 
 // ---- Listas de opciones ----
+// En "Datos variables" se editan muchos campos: Enter en uno de ellos no genera el PDF (solo el botón)
+document.getElementById("form-vdp").addEventListener("keydown", e => {
+    if (e.key === "Enter" && e.target.tagName === "INPUT" && e.target.type !== "submit") e.preventDefault();
+});
 function _opciones(select, lista) {
     lista.forEach(([valor, nombre]) => select.appendChild(new Option(nombre, valor)));
 }
@@ -185,6 +201,7 @@ document.querySelectorAll("select[data-llenar]").forEach(s => {
         "tipos-barras": tipos,
         "tipos-con-qr": [["qr", "QR"], ...tipos],
         modos: MODOS_IMPOSICION.map(m => [m.id, m.nombre]),
+        "pliegos-fijos": Object.entries(PLIEGOS).map(([n, [w, h]]) => [n, `${n} (${w}×${h} mm)`]),
         pliegos: [...Object.entries(PLIEGOS).map(([n, [w, h]]) => [n, `${n} (${w}×${h} mm)`]), ["custom", "Medida personalizada"]]
     };
     _opciones(s, listas[s.dataset.llenar]);
@@ -384,6 +401,43 @@ formEtiquetas.querySelector("[data-ejemplo-csv]").addEventListener("click", () =
     descargar(new Blob(["\uFEFF" + filas.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" }), "ejemplo-etiquetas.csv");
 });
 
+// ---- Datos variables (plantilla PDF + CSV) ----
+const formVdp = document.getElementById("form-vdp");
+const salidaVdp = () => formVdp.parentElement.querySelector("[data-salida]");
+
+async function elegirPlantillaVdp() {
+    const [archivo] = archivosDe(formVdp, "plantilla");
+    if (!archivo) return;
+    try {
+        const p = await disenador.cargarPlantilla(archivo, numero(formVdp, "paginaPlantilla", 1));
+        formVdp.elements.paginaPlantilla.max = p.paginas;
+        formVdp.elements.paginaPlantilla.value = p.nro;
+    } catch (e) {
+        mostrarError(salidaVdp(), new Error("No se pudo leer la plantilla: tiene que ser un PDF válido (y sin contraseña)."));
+    }
+}
+formVdp.elements.plantilla.addEventListener("change", elegirPlantillaVdp);
+formVdp.elements.paginaPlantilla.addEventListener("change", elegirPlantillaVdp);
+
+formVdp.elements.csv.addEventListener("change", async e => {
+    const [archivo] = e.target.files;
+    if (!archivo) return;
+    try {
+        disenador.cargarCSV(await leerArchivoCSV(archivo), marcado(formVdp, "encabezado"));
+    } catch (err) { mostrarError(salidaVdp(), err); }
+});
+formVdp.elements.encabezado.addEventListener("change", () => disenador.cambiarEncabezado(marcado(formVdp, "encabezado")));
+
+formVdp.querySelector("[data-abrir-diseno]").addEventListener("change", async e => {
+    const [archivo] = e.target.files;
+    e.target.value = ""; // para poder abrir el mismo archivo otra vez
+    if (!archivo) return;
+    try {
+        const aviso = await disenador.abrirDiseno(archivo);
+        avisar(aviso || "Diseño abierto");
+    } catch (err) { mostrarError(salidaVdp(), err); }
+});
+
 // ---- Pestañas ----
 const vistas = Array.from(document.querySelectorAll(".vista"));
 const barraPestanas = document.getElementById("barra-pestanas");
@@ -392,6 +446,7 @@ function abrirPestana(id) {
     vistas.forEach(v => v.classList.toggle("activa", v.id === id));
     barraPestanas.querySelectorAll(".btn").forEach(b => b.classList.toggle("activa", b.dataset.vista === id));
     guardarPref("pestana", id);
+    if (id === "vista-vdp") disenador.redibujar(); // la hoja se mide con el ancho disponible: hay que hacerlo con la pestaña a la vista
 }
 
 vistas.forEach(v => {

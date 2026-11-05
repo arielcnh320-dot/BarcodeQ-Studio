@@ -202,12 +202,72 @@
             <div class="salida" data-salida><span class="vacio">Las etiquetas van a aparecer acá.</span></div>
         </section>
 
+        <!-- Datos variables: plantilla PDF + CSV -->
+        <section id="vista-vdp" class="vista vista-vdp" data-titulo="Datos variables">
+            <form data-accion="vdp" id="form-vdp">
+                <p class="ayuda">Poné datos distintos de un CSV sobre una plantilla PDF (remito, factura, entrada…): sale una página por cada fila.</p>
+                <label>1. Plantilla (PDF)<input type="file" name="plantilla" accept=".pdf,application/pdf" required></label>
+                <label>Página de la plantilla que se usa<input name="paginaPlantilla" type="number" value="1" min="1"></label>
+                <label>2. Datos (CSV)<input type="file" name="csv" accept=".csv,.txt,text/csv,text/plain" required></label>
+                <label class="fila"><input type="checkbox" name="encabezado" checked> La primera fila tiene los títulos de las columnas</label>
+                <div class="dos">
+                    <label>Desde la fila (opcional)<input name="desde" type="number" min="1" placeholder="todas"></label>
+                    <label>Hasta la fila (opcional)<input name="hasta" type="number" min="1" placeholder="todas"></label>
+                </div>
+                <div class="campo">
+                    <span class="titulo-campo">3. Campos que cambian en cada página</span>
+                    <div class="botonera">
+                        <button type="button" class="btn" data-nuevo="texto">+ Texto</button>
+                        <button type="button" class="btn" data-nuevo="qr">+ QR</button>
+                        <button type="button" class="btn" data-nuevo="barras">+ Código de barras</button>
+                    </div>
+                    <div class="lista-campos" data-lista-campos><span class="vacio">Todavía no agregaste campos.</span></div>
+                </div>
+                <details class="grupo">
+                    <summary>Varias páginas por pliego (imposición)</summary>
+                    <label class="fila"><input type="checkbox" name="impOn"> Acomodar varias páginas en cada pliego</label>
+                    <div class="dos">
+                        <label>Pliego<select name="impPliego" data-llenar="pliegos-fijos"></select></label>
+                        <label class="fila" style="margin-top:22px"><input type="checkbox" name="impHorizontal"> Horizontal</label>
+                    </div>
+                    <div class="dos">
+                        <label>Columnas<input name="impColumnas" type="number" value="2" min="1" max="20"></label>
+                        <label>Filas<input name="impFilas" type="number" value="2" min="1" max="20"></label>
+                    </div>
+                    <div class="dos">
+                        <label>Calle (mm)<input name="impCalle" type="number" value="4" step="0.5" min="0"></label>
+                        <label>Margen (mm)<input name="impMargen" type="number" value="10" step="0.5" min="0"></label>
+                    </div>
+                    <label class="fila"><input type="checkbox" name="impMarcas" checked> Marcas de corte</label>
+                </details>
+                <button class="btn btn-accion">Generar PDF</button>
+                <div class="botonera">
+                    <button type="button" class="btn" data-guardar-diseno>💾 Guardar diseño</button>
+                    <label class="btn btn-archivo">📂 Abrir diseño<input type="file" accept=".json,application/json" data-abrir-diseno hidden></label>
+                </div>
+                <p class="ayuda">El diseño guarda los campos y sus posiciones, para volver a usarlos con otro CSV o con la misma plantilla.</p>
+            </form>
+            <div class="derecha">
+                <div class="disenador">
+                    <div class="barra-disenador">
+                        <span class="titulo-campo">Así se ve con los datos de la fila:</span>
+                        <button type="button" class="btn" data-fila-vista="-1" aria-label="Fila anterior">◀</button>
+                        <span data-etiqueta-fila>–</span>
+                        <button type="button" class="btn" data-fila-vista="1" aria-label="Fila siguiente">▶</button>
+                    </div>
+                    <div class="escenario" data-escenario><span class="vacio">Elegí la plantilla (y el CSV) para empezar. Después agregá campos y arrastralos a su lugar.</span></div>
+                </div>
+                <div class="editor-campo" data-editor hidden></div>
+                <div class="salida" data-salida><span class="vacio">El PDF generado va a aparecer acá.</span></div>
+            </div>
+        </section>
+
     </div>
 
 <script>
 // Versión de la app. Tiene que quedar acá: la app compara esta versión con la del index.html publicado
 // y, si hay una nueva, muestra el botón "🔄 Actualizar app".
-const VERSION_APP = "2026.11.05-1";
+const VERSION_APP = "2026.11.05-2";
 </script>
 <!-- Librerías (copias locales en lib/, funcionan sin conexión) -->
 <script src="lib/pdf-lib.min.js"></script>
@@ -225,6 +285,8 @@ const VERSION_APP = "2026.11.05-1";
 <script src="js/imposicion.js"></script>
 <script src="js/etiquetas.js"></script>
 <script src="js/pdf_jpeg.js"></script>
+<script src="js/variables.js"></script>
+<script src="js/disenador.js"></script>
 <script src="js/eventos.js"></script>
 <script src="js/inicio.js"></script>
 </body>

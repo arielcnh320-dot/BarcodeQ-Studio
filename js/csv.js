@@ -57,3 +57,9 @@ async function leerArchivoCSV(archivo) {
     if (!filas.some(f => f.some(c => c.trim() !== ""))) throw new Error("El archivo está vacío");
     return filas;
 }
+
+// Nombres de las columnas: los títulos de la primera fila, o "Columna 1, 2…" si no hay títulos (o está vacío)
+function titulosDeCSV(filas, tieneEncabezado) {
+    const ancho = Math.max(0, ...filas.map(r => r.length));
+    return Array.from({ length: ancho }, (_, i) => (tieneEncabezado && (filas[0][i] || "").trim()) || `Columna ${i + 1}`);
+}

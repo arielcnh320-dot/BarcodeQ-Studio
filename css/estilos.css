@@ -136,3 +136,42 @@ select option { background: #161C34; }
 .tabla-csv th.col-codigo { background: #24427f; }
 .tabla-csv th.col-texto { background: #17503f; }
 .tabla-csv td.num { color: var(--texto-gris); text-align: right; }
+
+/* Datos variables: diseñador */
+.vista-vdp.activa { grid-template-columns: minmax(0, 360px) minmax(0, 1fr); }
+.derecha { display: grid; gap: 14px; min-width: 0; align-content: start; }
+.botonera { display: flex; flex-wrap: wrap; gap: 8px; }
+.botonera .btn { padding: 7px 12px; font-size: 14px; }
+.btn-archivo { cursor: pointer; display: inline-block; }
+.lista-campos { display: grid; gap: 6px; }
+.item-campo { text-align: left; font: inherit; font-size: 14px; color: var(--texto-blanco); background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 10px; padding: 7px 10px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item-campo.sel { background: rgba(59, 130, 246, .35); border-color: var(--hover-win11); }
+.editor-campo { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--hover-win11); border-radius: 12px; background: rgba(59, 130, 246, .08); }
+.editor-campo h3 { margin: 0; font-size: 15px; }
+.editor-campo textarea { min-height: 54px; resize: vertical; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { font: inherit; font-size: 12px; color: var(--texto-blanco); background: var(--glass-bg-strong); border: 1px solid var(--glass-border-strong); border-radius: 999px; padding: 3px 9px; cursor: pointer; }
+.chip:hover { background: rgba(255, 255, 255, .2); }
+.grupo { border: 1px solid var(--glass-border); border-radius: 12px; padding: 8px 12px; display: grid; gap: 10px; }
+.grupo summary { cursor: pointer; font-size: 14px; }
+.grupo[open] summary { margin-bottom: 4px; }
+.disenador { border: 1px solid var(--glass-border); border-radius: 12px; padding: 10px; display: grid; gap: 8px; min-width: 0; }
+.barra-disenador { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.barra-disenador .btn { padding: 4px 12px; }
+.escenario { overflow: auto; max-height: 78vh; border-radius: 8px; background: rgba(0, 0, 0, .25); padding: 10px; display: flex; justify-content: center; }
+.hoja { position: relative; flex: none; background: #fff; box-shadow: 0 4px 18px rgba(0, 0, 0, .5); touch-action: none; user-select: none; }
+.hoja canvas { display: block; }
+.capa { position: absolute; inset: 0; overflow: hidden; }
+.campo-vdp { position: absolute; cursor: move; color: #000; outline: 1px dashed rgba(37, 99, 235, .55); touch-action: none; transform-origin: center; }
+.campo-vdp.sel { outline: 2px solid #2563eb; }
+.campo-vdp.t-texto { white-space: pre; line-height: 1.2; font-family: Helvetica, Arial, "Liberation Sans", sans-serif; }
+.campo-vdp.t-codigo img { display: block; width: 100%; background: #fff; pointer-events: none; }
+.campo-vdp .texto-barras { line-height: 1.2; text-align: center; white-space: pre; font-family: Helvetica, Arial, "Liberation Sans", sans-serif; pointer-events: none; }
+.campo-vdp.vacio-fila { outline: 2px dashed #d97706; background: rgba(251, 191, 36, .25); }
+.campo-vdp.con-error { outline: 2px solid #dc2626; background: rgba(248, 113, 113, .3); }
+.campo-vdp .aviso-campo { position: absolute; left: 0; top: 100%; font: 11px/1.2 system-ui, sans-serif; color: #b91c1c; white-space: nowrap; background: #fff; padding: 1px 4px; border-radius: 3px; }
+.asa { position: absolute; right: -6px; bottom: -6px; width: 12px; height: 12px; background: #2563eb; border: 2px solid #fff; border-radius: 3px; cursor: nwse-resize; touch-action: none; }
+@media (max-width: 760px) { .vista-vdp.activa { grid-template-columns: 1fr; } }
+.editor-campo .dos, .editor-campo .campo { min-width: 0; }
+.editor-campo { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.editor-campo > h3, .editor-campo > label:has(textarea), .editor-campo > .chips, .editor-campo > .titulo-campo, .editor-campo > .botonera { grid-column: 1 / -1; }
