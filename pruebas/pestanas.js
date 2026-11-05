@@ -92,8 +92,11 @@ const os = require('os');
     await pagina.waitForFunction(() => document.querySelector('#vista-etiquetas select[name=colCodigo]').options.length === 2);
     const titulosCsv = await pagina.$$eval('#vista-etiquetas select[name=colCodigo] option', o => o.map(x => x.textContent));
     prueba('las columnas se llenan con los títulos del CSV (con la ó bien leída)', titulosCsv.join('|') === 'codigo|descripción', titulosCsv.join('|'));
-    const opcionesTexto = await pagina.$$eval('#vista-etiquetas select[name=colTexto] option', o => o.map(x => x.textContent));
-    prueba('la columna del texto ofrece además "ninguna"', opcionesTexto.length === 3 && /ninguna/.test(opcionesTexto[0]), opcionesTexto.join('|'));
+    const casillasTexto = await pagina.$$eval('#vista-etiquetas [data-columnas-texto] label', o => o.map(x => x.textContent.trim()));
+    prueba('para el texto hay una casilla por columna (se pueden marcar varias)', casillasTexto.join('|') === 'codigo|descripción', casillasTexto.join('|'));
+    const tabla = await pagina.$$eval('#vista-etiquetas .tabla-csv th', o => o.map(x => x.textContent));
+    prueba('la vista previa es una tabla con los títulos y el número de fila', tabla.join('|') === '#|codigo|descripción', tabla.join('|'));
+    prueba('la columna del código está marcada en la tabla', await pagina.$eval('#vista-etiquetas .tabla-csv th.col-codigo', th => th.textContent) === 'codigo');
     const resumen = await pagina.textContent('#vista-etiquetas [data-resumen]');
     prueba('dice cuántas entran por hoja y cuántas hojas salen', /Entran 3×8 = 24 etiquetas por hoja/.test(resumen) && /Con 3 etiquetas salen 1 hoja\./.test(resumen), resumen);
     prueba('muestra cómo se leyó el archivo', /Caño ñandú/.test(await pagina.textContent('#vista-etiquetas [data-salida]')));
@@ -102,7 +105,8 @@ const os = require('os');
     prueba('sin fila de títulos las columnas se llaman "Columna 1", "Columna 2"', sinTit.join('|') === 'Columna 1|Columna 2', sinTit.join('|'));
     prueba('y ahora son 4 etiquetas (la fila de títulos también cuenta)', /Con 4 etiquetas/.test(await pagina.textContent('#vista-etiquetas [data-resumen]')));
     await pagina.check('#vista-etiquetas input[name=encabezado]');
-    await pagina.selectOption('#vista-etiquetas select[name=colTexto]', '1');
+    await pagina.check('#vista-etiquetas [data-columnas-texto] input[value="1"]');
+    prueba('al marcar una columna de texto se pinta en la tabla', await pagina.$$eval('#vista-etiquetas .tabla-csv th.col-texto', th => th.map(x => x.textContent)).then(x => x.join() === 'descripción'));
     await pagina.fill('#vista-etiquetas input[name=copias]', '2');
     prueba('con 2 copias de cada una salen 6 etiquetas', /Con 6 etiquetas/.test(await pagina.textContent('#vista-etiquetas [data-resumen]')));
     await pagina.click('#vista-etiquetas button.btn-accion');
@@ -119,6 +123,35 @@ const os = require('os');
     await dEj.saveAs(rutaEj);
     const ej = fs.readFileSync(rutaEj, 'utf8');
     prueba('el CSV de ejemplo se descarga y trae el separador ; (abre bien en Excel en español)', dEj.suggestedFilename() === 'ejemplo-etiquetas.csv' && ej.includes('codigo;descripcion') && ej.includes('ñandú'), ej.slice(0, 60));
+
+    // Un CSV con la misma forma que el de las entradas de cine: muchas columnas, la del código no es la primera
+    const rutaCine = path.join(tmp, 'cine.csv');
+    fs.writeFileSync(rutaCine, 'ID;Movie;Guest-Name;Guest-Surname;Email;Date-Time;Price;Theater;Row;Seat;QR\r\n' +
+        '1;Online Training;Miruna;Alfaro;Miruna.Alfaro@youremail.com;01.11.2021 - 8PM;10 €;S1;1A;1;3450802982\r\n' +
+        '2;Online Training;Lex;Pratt;Lex.Pratt@youremail.com;01.11.2021 - 8PM;10 €;S1;1A;2;649705671\r\n');
+    await pagina.setInputFiles('#vista-etiquetas input[type=file]', rutaCine);
+    await pagina.waitForFunction(() => document.querySelector('#vista-etiquetas select[name=colCodigo]').options.length === 11);
+    const elegida = await pagina.$eval('#vista-etiquetas select[name=colCodigo]', s => s.options[s.selectedIndex].textContent);
+    prueba('elige sola la columna "QR" como código (en vez de la primera)', elegida === 'QR', elegida);
+    prueba('la tabla de vista previa tiene las 11 columnas y se puede desplazar sin cortar el texto', await pagina.$eval('#vista-etiquetas .tabla-csv', t => t.querySelectorAll('th').length === 12 && t.scrollWidth >= t.clientWidth));
+    await pagina.check('#vista-etiquetas [data-columnas-texto] input[value="2"]');
+    await pagina.check('#vista-etiquetas [data-columnas-texto] input[value="3"]');
+    const colTexto = await pagina.$$eval('#vista-etiquetas .tabla-csv th.col-texto', th => th.map(x => x.textContent));
+    prueba('se pueden marcar varias columnas para el texto (nombre y apellido)', colTexto.join() === 'Guest-Name,Guest-Surname', colTexto.join());
+    await pagina.click('#vista-etiquetas .tabla-csv th:nth-child(8)'); // "Price" (la 1ª es el #)
+    const tocada = await pagina.$eval('#vista-etiquetas select[name=colCodigo]', s => s.options[s.selectedIndex].textContent);
+    prueba('tocar el título de una columna en la tabla la elige como código', tocada === 'Price', tocada);
+    prueba('y la tabla la pinta de azul', await pagina.$eval('#vista-etiquetas .tabla-csv th.col-codigo', th => th.textContent) === 'Price');
+    await pagina.selectOption('#vista-etiquetas select[name=colCodigo]', '10');
+    await pagina.fill('#vista-etiquetas input[name=copias]', '1');
+    await pagina.selectOption('#vista-etiquetas select[name=tipo]', 'qr'); // antes quedó en EAN-13, que no admite estos códigos de 10 dígitos
+    await pagina.click('#vista-etiquetas button.btn-accion');
+    await pagina.waitForSelector('#vista-etiquetas .resultado canvas');
+    prueba('genera las etiquetas con la columna QR y avisa "2 etiquetas en 1 hoja"', /2 etiquetas en 1 hoja/.test(await pagina.textContent('#vista-etiquetas .resultado .ayuda')));
+    prueba('después de generar, el resultado no se pisa con la tabla al tocar otra opción', await (async () => {
+        await pagina.fill('#vista-etiquetas input[name=margen]', '12');
+        return (await pagina.$('#vista-etiquetas .resultado canvas')) !== null && (await pagina.$('#vista-etiquetas .tabla-csv')) === null;
+    })());
 
     // Recarga: recuerda la última pestaña usada
     await pagina.click('#barra-pestanas .btn:nth-child(7)');

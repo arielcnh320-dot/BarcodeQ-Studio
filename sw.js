@@ -4,7 +4,7 @@
 // Cambiar VERSION cuando se agreguen archivos nuevos a la lista de precarga (por ejemplo un archivo nuevo en js/:
 // también va en PRECARGA, en el mismo orden que en index.html).
 
-const VERSION = "barcode-studio-v2";
+const VERSION = "barcode-studio-v3";
 
 // Con señal débil, si la red tarda más que esto en responder se abre la copia guardada de la app
 const ESPERA_RED_MS = 4000;

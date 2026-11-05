@@ -148,6 +148,19 @@ const { prueba, fin, abrirApp } = require('./comun');
     const omit = await ev(() => registrosDeCSV([['c', 't'], ['A1', 'x'], ['', 'sin código'], ['', ''], ['A2', ''], ['  A3  ', 'y']], { tieneEncabezado: true, colCodigo: 0, colTexto: 1 }));
     prueba('saltea las filas sin código (cuenta solo las que tenían otros datos) y limpia espacios',
         j(omit.registros.map(r => [r.fila, r.codigo])) === j([[2, 'A1'], [5, 'A2'], [6, 'A3']]) && omit.omitidas === 1, j(omit));
+    const juntas = await ev(() => {
+        const filas = [['ID', 'Nombre', 'Apellido', 'QR'], ['1', 'Miruna', 'Alfaro', '3450802982'], ['2', 'Lex', '', '649705671'], ['3', '', '', '1']];
+        return {
+            dos: registrosDeCSV(filas, { colCodigo: 3, colTexto: [1, 2] }).registros.map(r => r.texto),
+            ninguna: registrosDeCSV(filas, { colCodigo: 3, colTexto: [] }).registros.map(r => r.texto),
+            menosUno: registrosDeCSV(filas, { colCodigo: 3, colTexto: -1 }).registros.map(r => r.texto),
+            una: registrosDeCSV(filas, { colCodigo: 3, colTexto: 1 }).registros.map(r => r.texto),
+            adivina: [adivinarColumnaCodigo(['ID', 'Movie', 'QR']), adivinarColumnaCodigo(['Nombre', 'Código', 'Precio']), adivinarColumnaCodigo(['A', 'B']), adivinarColumnaCodigo(['n', 'Serial', 'x']), adivinarColumnaCodigo(['Nro', 'ID'])]
+        };
+    });
+    prueba('varias columnas de texto se juntan con un espacio (y no deja espacios de más)', j(juntas.dos) === j(['Miruna Alfaro', 'Lex', '']), j(juntas.dos));
+    prueba('sin columnas de texto, o con -1, o con una sola, también anda', j(juntas.ninguna) === j(['', '', '']) && j(juntas.menosUno) === j(['', '', '']) && j(juntas.una) === j(['Miruna', 'Lex', '']), j(juntas));
+    prueba('adivina la columna del código por el título (QR, Código, Serial, ID); si no, la primera', j(juntas.adivina) === j([2, 1, 0, 1, 1]), j(juntas.adivina));
     const sinTitulos = await ev(() => registrosDeCSV([['A1', 'x'], ['A2', 'y']], { tieneEncabezado: false, colCodigo: 0, colTexto: -1 }).registros.length);
     prueba('sin fila de títulos, la primera fila también es un código', sinTitulos === 2);
 

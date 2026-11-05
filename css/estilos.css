@@ -117,3 +117,22 @@ select option { background: #161C34; }
     padding: 10px 16px; opacity: 0; pointer-events: none; transition: opacity .25s;
 }
 .aviso-flotante.visible { opacity: 1; }
+
+/* Vista previa del CSV y elección de columnas */
+.salida[data-vista="csv"] { display: block; }
+.campo { display: grid; gap: 6px; }
+.titulo-campo { font-size: 13px; color: var(--texto-gris); }
+.checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 12px; }
+.checks label.fila { font-size: 14px; }
+.leyenda { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 0 0 8px; font-size: 13px; color: var(--texto-gris); }
+.leyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 4px; }
+.leyenda .c-codigo, .tabla-csv .col-codigo { background: rgba(59, 130, 246, .38); }
+.leyenda .c-texto, .tabla-csv .col-texto { background: rgba(16, 185, 129, .30); }
+.tabla-csv { width: 100%; overflow: auto; max-height: 460px; border: 1px solid var(--glass-border); border-radius: 10px; }
+.tabla-csv table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.tabla-csv th, .tabla-csv td { padding: 6px 10px; text-align: left; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--glass-border); }
+.tabla-csv th { position: sticky; top: 0; background: #161C34; cursor: pointer; font-weight: 600; }
+.tabla-csv th:hover { background: #1f2748; }
+.tabla-csv th.col-codigo { background: #24427f; }
+.tabla-csv th.col-texto { background: #17503f; }
+.tabla-csv td.num { color: var(--texto-gris); text-align: right; }

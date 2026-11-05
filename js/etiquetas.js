@@ -15,7 +15,9 @@ function grillaDeEtiquetas({ pliego, horizontal = false, ancho, alto, margen, ca
 }
 
 // De las filas del CSV a una lista de { fila, codigo, texto }. `fila` es el número de fila en la planilla.
+// `colTexto`: una columna, una lista de columnas (se juntan con un espacio) o -1 para ninguna.
 function registrosDeCSV(filasCSV, { tieneEncabezado = true, colCodigo = 0, colTexto = -1 } = {}) {
+    const columnasTexto = (Array.isArray(colTexto) ? colTexto : [colTexto]).filter(c => c >= 0);
     const registros = [];
     let omitidas = 0;
     for (let i = tieneEncabezado ? 1 : 0; i < filasCSV.length; i++) {
@@ -25,7 +27,8 @@ function registrosDeCSV(filasCSV, { tieneEncabezado = true, colCodigo = 0, colTe
             if (celdas.some(c => c.trim() !== "")) omitidas++; // tenía datos pero no código
             continue;
         }
-        registros.push({ fila: i + 1, codigo, texto: colTexto >= 0 ? (celdas[colTexto] || "").trim() : "" });
+        const texto = columnasTexto.map(c => (celdas[c] || "").trim()).filter(Boolean).join(" ");
+        registros.push({ fila: i + 1, codigo, texto });
     }
     return { registros, omitidas };
 }

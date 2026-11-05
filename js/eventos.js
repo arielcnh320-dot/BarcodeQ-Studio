@@ -65,7 +65,7 @@ const ACCIONES = {
     async etiquetas(f, salida) {
         if (!csvEtiquetas) throw new Error("Elegí primero el archivo CSV");
         const { registros, omitidas } = registrosDeCSV(csvEtiquetas, {
-            tieneEncabezado: marcado(f, "encabezado"), colCodigo: parseInt(f.elements.colCodigo.value, 10), colTexto: parseInt(f.elements.colTexto.value, 10)
+            tieneEncabezado: marcado(f, "encabezado"), colCodigo: parseInt(f.elements.colCodigo.value, 10), colTexto: columnasTextoElegidas(f)
         });
         const r = await generarEtiquetas(registros, opcionesEtiquetas(f), (i, n) => { salida.textContent = `Generando etiqueta ${i} de ${n}…`; });
         const aviso = omitidas ? ` Se salteó ${omitidas} fila${omitidas === 1 ? "" : "s"} sin código.` : "";
@@ -162,6 +162,7 @@ document.querySelectorAll("form[data-accion]").forEach(form => {
         const salida = form.parentElement.querySelector("[data-salida]");
         const boton = form.querySelector("button.btn-accion");
         boton.disabled = true;
+        salida.dataset.vista = "";
         salida.textContent = "Procesando…";
         try {
             await mostrarResultado(salida, await ACCIONES[form.dataset.accion](form, salida));
@@ -238,46 +239,143 @@ function actualizarResumenEtiquetas() {
     } catch (e) { el.textContent = ""; }
 }
 
-// Llena las listas de columnas con los títulos (o "Columna 1, 2…" si no hay títulos)
-function llenarColumnasEtiquetas() {
+function columnasTextoElegidas(f) {
+    return Array.from(f.querySelectorAll("[data-columnas-texto] input:checked")).map(c => parseInt(c.value, 10));
+}
+
+// Si hay una columna que por el título parece ser el código (QR, código, serie…) la elige sola
+function adivinarColumnaCodigo(titulos) {
+    for (const patron of [/^qr/i, /^c[oó]digo/i, /^code/i, /barcode|c[oó]digo.?de.?barras/i, /^sku$/i, /^(n[uú]mero.?de.?)?serie|^serial/i, /^id$/i]) {
+        const i = titulos.findIndex(t => patron.test(t.trim()));
+        if (i >= 0) return i;
+    }
+    return 0;
+}
+
+// Llena la lista de la columna del código y las casillas del texto con los títulos del CSV
+// (o "Columna 1, 2…" si no hay fila de títulos). Con `conservar` se mantienen las elecciones hechas (al
+// cambiar solo la casilla de los títulos); con un archivo nuevo se empieza limpio.
+function llenarColumnasEtiquetas(conservar = false) {
     const f = formEtiquetas;
     const filas = csvEtiquetas || [];
     const ancho = Math.max(0, ...filas.map(r => r.length));
     const conTitulos = marcado(f, "encabezado");
-    const nombre = i => (conTitulos && (filas[0][i] || "").trim()) || `Columna ${i + 1}`;
-    const anteriorCodigo = f.elements.colCodigo.value, anteriorTexto = f.elements.colTexto.value;
-    [f.elements.colCodigo, f.elements.colTexto].forEach(s => { s.textContent = ""; s.disabled = !filas.length; });
-    for (let i = 0; i < ancho; i++) {
-        f.elements.colCodigo.appendChild(new Option(nombre(i), i));
-        f.elements.colTexto.appendChild(new Option(nombre(i), i));
+    const titulos = Array.from({ length: ancho }, (_, i) => (conTitulos && (filas[0][i] || "").trim()) || `Columna ${i + 1}`);
+    const eraTexto = new Set(conservar ? columnasTextoElegidas(f) : []);
+    const eraCodigo = conservar ? f.elements.colCodigo.value : "";
+
+    const select = f.elements.colCodigo;
+    select.textContent = "";
+    select.disabled = !filas.length;
+    titulos.forEach((t, i) => select.appendChild(new Option(t, i)));
+    select.value = eraCodigo !== "" && Number(eraCodigo) < ancho && !Number.isNaN(Number(eraCodigo)) && f.dataset.yaElegido ? eraCodigo : adivinarColumnaCodigo(titulos);
+
+    const caja = f.querySelector("[data-columnas-texto]");
+    caja.textContent = "";
+    if (!filas.length) {
+        const vacio = document.createElement("span");
+        vacio.className = "vacio";
+        vacio.textContent = "Primero elegí el archivo";
+        caja.appendChild(vacio);
+        return;
     }
-    f.elements.colTexto.insertBefore(new Option("(ninguna: se escribe el código)", -1), f.elements.colTexto.firstChild);
-    f.elements.colCodigo.value = anteriorCodigo && anteriorCodigo < ancho ? anteriorCodigo : 0;
-    f.elements.colTexto.value = anteriorTexto && anteriorTexto < ancho ? anteriorTexto : -1;
+    titulos.forEach((t, i) => {
+        const label = document.createElement("label");
+        label.className = "fila";
+        const caja2 = document.createElement("input");
+        caja2.type = "checkbox";
+        caja2.value = i;
+        caja2.checked = eraTexto.has(i);
+        label.append(caja2, document.createTextNode(" " + t));
+        caja.appendChild(label);
+    });
+}
+
+// Muestra el CSV como una tabla con los títulos; marca en color la columna del código y las del texto
+function mostrarVistaPreviaCSV() {
+    const f = formEtiquetas, salida = f.parentElement.querySelector("[data-salida]");
+    if (!csvEtiquetas) return;
+    const conTitulos = marcado(f, "encabezado");
+    const ancho = Math.max(0, ...csvEtiquetas.map(r => r.length));
+    const colCodigo = parseInt(f.elements.colCodigo.value, 10), colsTexto = new Set(columnasTextoElegidas(f));
+    const titulos = Array.from({ length: ancho }, (_, i) => (conTitulos && (csvEtiquetas[0][i] || "").trim()) || `Columna ${i + 1}`);
+    const clase = i => (i === colCodigo ? "col-codigo" : colsTexto.has(i) ? "col-texto" : "");
+    const datos = csvEtiquetas.slice(conTitulos ? 1 : 0);
+    const { registros } = registrosDeCSV(csvEtiquetas, { tieneEncabezado: conTitulos, colCodigo, colTexto: -1 });
+
+    salida.textContent = "";
+    salida.dataset.vista = "csv";
+    const leyenda = document.createElement("p");
+    leyenda.className = "leyenda";
+    leyenda.innerHTML = '<span><i class="c-codigo"></i>Código</span><span><i class="c-texto"></i>Texto de abajo</span>';
+    const total = document.createElement("span");
+    total.textContent = `${registros.length} código${registros.length === 1 ? "" : "s"} para imprimir (de ${datos.length} fila${datos.length === 1 ? "" : "s"}). Tocá el título de una columna para usarla como código.`;
+    leyenda.appendChild(total);
+    const contenedor = document.createElement("div");
+    contenedor.className = "tabla-csv";
+    const tabla = document.createElement("table");
+    const cabecera = tabla.createTHead().insertRow();
+    const fila0 = document.createElement("th");
+    fila0.textContent = "#";
+    cabecera.appendChild(fila0);
+    titulos.forEach((t, i) => {
+        const th = document.createElement("th");
+        th.textContent = t;
+        th.title = "Tocá para usar esta columna como código";
+        th.className = clase(i);
+        th.addEventListener("click", () => { f.elements.colCodigo.value = i; f.dataset.yaElegido = "1"; refrescarEtiquetas(); });
+        cabecera.appendChild(th);
+    });
+    const cuerpo = tabla.createTBody();
+    datos.slice(0, 12).forEach((celdas, n) => {
+        const tr = cuerpo.insertRow();
+        const num = tr.insertCell();
+        num.className = "num";
+        num.textContent = n + (conTitulos ? 2 : 1); // número de fila en la planilla
+        for (let i = 0; i < ancho; i++) {
+            const td = tr.insertCell();
+            td.className = clase(i);
+            td.textContent = celdas[i] || "";
+            td.title = celdas[i] || "";
+        }
+    });
+    contenedor.appendChild(tabla);
+    salida.append(leyenda, contenedor);
+    if (datos.length > 12) {
+        const mas = document.createElement("p");
+        mas.className = "ayuda";
+        mas.textContent = `…y ${datos.length - 12} fila${datos.length - 12 === 1 ? "" : "s"} más.`;
+        salida.appendChild(mas);
+    }
+}
+
+function refrescarEtiquetas() {
+    actualizarResumenEtiquetas();
+    const salida = formEtiquetas.parentElement.querySelector("[data-salida]");
+    if (csvEtiquetas && salida.dataset.vista === "csv") mostrarVistaPreviaCSV(); // solo mientras se ve la vista previa (no pisa un resultado)
 }
 
 formEtiquetas.elements.archivo.addEventListener("change", async e => {
     const salida = formEtiquetas.parentElement.querySelector("[data-salida]");
     csvEtiquetas = null;
+    delete formEtiquetas.dataset.yaElegido;
     const [archivo] = e.target.files;
     try {
         if (!archivo) throw new Error("");
         csvEtiquetas = await leerArchivoCSV(archivo);
-        // Si la primera fila parece un código y no un título (no hay letras repetidas), igual dejamos elegir: el usuario decide
         llenarColumnasEtiquetas();
-        salida.innerHTML = "";
-        const vista = document.createElement("pre");
-        vista.textContent = "Así se leyó el archivo (primeras filas):\n\n" + csvEtiquetas.slice(0, 6).map(r => r.join("  |  ")).join("\n");
-        salida.appendChild(vista);
+        mostrarVistaPreviaCSV();
     } catch (err) {
         llenarColumnasEtiquetas();
+        salida.dataset.vista = "";
         if (err.message) mostrarError(salida, err);
     }
     actualizarResumenEtiquetas();
 });
-formEtiquetas.elements.encabezado.addEventListener("change", () => { llenarColumnasEtiquetas(); actualizarResumenEtiquetas(); });
-formEtiquetas.addEventListener("input", actualizarResumenEtiquetas);
-formEtiquetas.addEventListener("change", actualizarResumenEtiquetas);
+formEtiquetas.elements.encabezado.addEventListener("change", () => { llenarColumnasEtiquetas(true); refrescarEtiquetas(); });
+formEtiquetas.elements.colCodigo.addEventListener("change", () => { formEtiquetas.dataset.yaElegido = "1"; });
+formEtiquetas.addEventListener("input", refrescarEtiquetas);
+formEtiquetas.addEventListener("change", refrescarEtiquetas);
 formEtiquetas.elements.pliego.value = "A4";
 actualizarResumenEtiquetas();
 

@@ -170,9 +170,10 @@
             <form data-accion="etiquetas">
                 <label>Archivo CSV (se guarda desde Excel: "Guardar como → CSV")<input type="file" name="archivo" accept=".csv,.txt,text/csv,text/plain" required></label>
                 <label class="fila"><input type="checkbox" name="encabezado" checked> La primera fila tiene los títulos de las columnas</label>
-                <div class="dos">
-                    <label>Columna del código<select name="colCodigo" disabled><option>Primero elegí el archivo</option></select></label>
-                    <label>Columna del texto<select name="colTexto" disabled><option>Primero elegí el archivo</option></select></label>
+                <label>Columna para el código (lo que lleva el QR o las barras)<select name="colCodigo" disabled><option>Primero elegí el archivo</option></select></label>
+                <div class="campo">
+                    <span class="titulo-campo">Columnas para el texto de abajo (marcá las que quieras; se juntan con un espacio)</span>
+                    <div class="checks" data-columnas-texto><span class="vacio">Primero elegí el archivo</span></div>
                 </div>
                 <label>Tipo de código<select name="tipo" data-llenar="tipos-con-qr"></select></label>
                 <div class="dos">
@@ -206,7 +207,7 @@
 <script>
 // Versión de la app. Tiene que quedar acá: la app compara esta versión con la del index.html publicado
 // y, si hay una nueva, muestra el botón "🔄 Actualizar app".
-const VERSION_APP = "2026.11.04-2";
+const VERSION_APP = "2026.11.05-1";
 </script>
 <!-- Librerías (copias locales en lib/, funcionan sin conexión) -->
 <script src="lib/pdf-lib.min.js"></script>
