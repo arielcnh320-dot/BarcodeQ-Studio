@@ -47,7 +47,7 @@ prueba('manifest.webmanifest y los íconos existen',
     const afuera = pedidos.filter(u => !u.startsWith(new URL(URL_APP).origin) && !u.startsWith('blob:') && !u.startsWith('data:'));
     prueba('no pide nada a sitios externos', !afuera.length, afuera.join(', '));
     prueba('las funciones principales están definidas', await app.pagina.evaluate(() =>
-        ['generarQR', 'generarBarras', 'leerCodigos', 'imponer', 'imagenesAPdf', 'pdfAJpeg', 'unirPdfs', 'insertarCodigoEnPdf'].every(n => typeof window[n] === 'function')));
+        ['generarQR', 'generarBarras', 'leerCodigos', 'imponer', 'generarEtiquetas', 'leerArchivoCSV', 'imagenesAPdf', 'pdfAJpeg', 'unirPdfs', 'insertarCodigoEnPdf'].every(n => typeof window[n] === 'function')));
 
     // Sin conexión: el service worker guarda todo y la app vuelve a abrir
     await app.pagina.evaluate(() => navigator.serviceWorker.ready);
@@ -59,7 +59,7 @@ prueba('manifest.webmanifest y los íconos existen',
     let abrio = true;
     try { await p2.goto(URL_APP, { timeout: 15000 }); } catch (e) { abrio = false; errores2.push(e.message); }
     await dormir(500);
-    const listo = abrio && await p2.evaluate(() => typeof generarQR === 'function' && typeof pdfjsLib !== 'undefined' && document.querySelectorAll('.vista').length >= 8).catch(() => false);
+    const listo = abrio && await p2.evaluate(() => typeof generarQR === 'function' && typeof pdfjsLib !== 'undefined' && document.querySelectorAll('.vista').length >= 9).catch(() => false);
     prueba('abre sin conexión con la copia guardada, con todo su código', listo, errores2.join(' | '));
     await app.navegador.close();
     fin();

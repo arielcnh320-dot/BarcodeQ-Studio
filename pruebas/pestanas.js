@@ -8,7 +8,7 @@ const os = require('os');
     const vistaActiva = () => pagina.$$eval('.vista.activa', v => v.map(x => x.id));
 
     const titulos = await pagina.$$eval('#barra-pestanas .btn', b => b.map(x => x.textContent));
-    prueba('hay 8 pestañas', titulos.length === 8, titulos.join(' | '));
+    prueba('hay 9 pestañas', titulos.length === 9, titulos.join(' | '));
     prueba('arranca con una sola vista abierta', (await vistaActiva()).length === 1);
     let todasAbren = true;
     for (let i = 0; i < titulos.length; i++) {
@@ -83,6 +83,43 @@ const os = require('os');
     await pagina.waitForSelector('#vista-img-pdf .resultado canvas');
     prueba('JPEG → PDF: dice cuántas páginas tiene', /2 páginas/.test(await pagina.textContent('#vista-img-pdf .resultado .ayuda')));
 
+    // Etiquetas en serie: un CSV como lo guarda Excel en español (separador ; y acentos en formato Windows)
+    const rutaCsv = path.join(tmp, 'etiquetas.csv');
+    fs.writeFileSync(rutaCsv, Buffer.from('codigo;descripción\r\nAB-001;Caño ñandú\r\nAB-002;Tuerca\r\nAB-003;Arandela\r\n', 'latin1'));
+    await pagina.click('#barra-pestanas .btn:nth-child(9)');
+    prueba('antes de elegir archivo las listas de columnas están desactivadas', await pagina.$eval('#vista-etiquetas select[name=colCodigo]', s => s.disabled));
+    await pagina.setInputFiles('#vista-etiquetas input[type=file]', rutaCsv);
+    await pagina.waitForFunction(() => document.querySelector('#vista-etiquetas select[name=colCodigo]').options.length === 2);
+    const titulosCsv = await pagina.$$eval('#vista-etiquetas select[name=colCodigo] option', o => o.map(x => x.textContent));
+    prueba('las columnas se llenan con los títulos del CSV (con la ó bien leída)', titulosCsv.join('|') === 'codigo|descripción', titulosCsv.join('|'));
+    const opcionesTexto = await pagina.$$eval('#vista-etiquetas select[name=colTexto] option', o => o.map(x => x.textContent));
+    prueba('la columna del texto ofrece además "ninguna"', opcionesTexto.length === 3 && /ninguna/.test(opcionesTexto[0]), opcionesTexto.join('|'));
+    const resumen = await pagina.textContent('#vista-etiquetas [data-resumen]');
+    prueba('dice cuántas entran por hoja y cuántas hojas salen', /Entran 3×8 = 24 etiquetas por hoja/.test(resumen) && /Con 3 etiquetas salen 1 hoja\./.test(resumen), resumen);
+    prueba('muestra cómo se leyó el archivo', /Caño ñandú/.test(await pagina.textContent('#vista-etiquetas [data-salida]')));
+    await pagina.uncheck('#vista-etiquetas input[name=encabezado]');
+    const sinTit = await pagina.$$eval('#vista-etiquetas select[name=colCodigo] option', o => o.map(x => x.textContent));
+    prueba('sin fila de títulos las columnas se llaman "Columna 1", "Columna 2"', sinTit.join('|') === 'Columna 1|Columna 2', sinTit.join('|'));
+    prueba('y ahora son 4 etiquetas (la fila de títulos también cuenta)', /Con 4 etiquetas/.test(await pagina.textContent('#vista-etiquetas [data-resumen]')));
+    await pagina.check('#vista-etiquetas input[name=encabezado]');
+    await pagina.selectOption('#vista-etiquetas select[name=colTexto]', '1');
+    await pagina.fill('#vista-etiquetas input[name=copias]', '2');
+    prueba('con 2 copias de cada una salen 6 etiquetas', /Con 6 etiquetas/.test(await pagina.textContent('#vista-etiquetas [data-resumen]')));
+    await pagina.click('#vista-etiquetas button.btn-accion');
+    await pagina.waitForSelector('#vista-etiquetas .resultado canvas');
+    const notaEt = await pagina.textContent('#vista-etiquetas .resultado .ayuda');
+    prueba('genera el PDF y avisa "6 etiquetas en 1 hoja (3×8 por hoja)"', /6 etiquetas en 1 hoja \(3×8 por hoja\)/.test(notaEt), notaEt);
+    prueba('el archivo se llama etiquetas.pdf', await pagina.$eval('#vista-etiquetas a.descarga', a => a.download) === 'etiquetas.pdf');
+    await pagina.selectOption('#vista-etiquetas select[name=tipo]', 'ean13');
+    await pagina.click('#vista-etiquetas button.btn-accion');
+    await pagina.waitForSelector('#vista-etiquetas .error');
+    prueba('con un tipo que no admite esos datos (EAN-13 con letras) dice en qué fila está el problema', /Fila 2: .*no es válido para EAN-13/.test(await pagina.textContent('#vista-etiquetas .error')), await pagina.textContent('#vista-etiquetas .error'));
+    const [dEj] = await Promise.all([pagina.waitForEvent('download'), pagina.click('#vista-etiquetas [data-ejemplo-csv]')]);
+    const rutaEj = path.join(tmp, 'ejemplo.csv');
+    await dEj.saveAs(rutaEj);
+    const ej = fs.readFileSync(rutaEj, 'utf8');
+    prueba('el CSV de ejemplo se descarga y trae el separador ; (abre bien en Excel en español)', dEj.suggestedFilename() === 'ejemplo-etiquetas.csv' && ej.includes('codigo;descripcion') && ej.includes('ñandú'), ej.slice(0, 60));
+
     // Recarga: recuerda la última pestaña usada
     await pagina.click('#barra-pestanas .btn:nth-child(7)');
     await pagina.reload();
@@ -90,7 +127,7 @@ const os = require('os');
 
     // Teléfono: sin scroll horizontal
     await pagina.setViewportSize({ width: 375, height: 700 });
-    for (const i of [1, 4, 8]) {
+    for (const i of [1, 4, 8, 9]) {
         await pagina.click(`#barra-pestanas .btn:nth-child(${i})`);
     }
     const desborde = await pagina.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

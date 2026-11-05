@@ -4,7 +4,7 @@
 // Cambiar VERSION cuando se agreguen archivos nuevos a la lista de precarga (por ejemplo un archivo nuevo en js/:
 // también va en PRECARGA, en el mismo orden que en index.html).
 
-const VERSION = "barcode-studio-v1";
+const VERSION = "barcode-studio-v2";
 
 // Con señal débil, si la red tarda más que esto en responder se abre la copia guardada de la app
 const ESPERA_RED_MS = 4000;
@@ -22,9 +22,11 @@ const PRECARGA = [
     "./lib/zxing.min.js",
     "./js/constantes_y_textos.js",
     "./js/datos.js",
+    "./js/csv.js",
     "./js/codigos.js",
     "./js/lectura.js",
     "./js/imposicion.js",
+    "./js/etiquetas.js",
     "./js/pdf_jpeg.js",
     "./js/eventos.js",
     "./js/inicio.js",

@@ -62,6 +62,16 @@ const ACCIONES = {
         return r.nombre.endsWith(".jpg") ? { imagen: r.blob, nombre: r.nombre } : { archivo: r.blob, nombre: r.nombre };
     },
 
+    async etiquetas(f, salida) {
+        if (!csvEtiquetas) throw new Error("Elegí primero el archivo CSV");
+        const { registros, omitidas } = registrosDeCSV(csvEtiquetas, {
+            tieneEncabezado: marcado(f, "encabezado"), colCodigo: parseInt(f.elements.colCodigo.value, 10), colTexto: parseInt(f.elements.colTexto.value, 10)
+        });
+        const r = await generarEtiquetas(registros, opcionesEtiquetas(f), (i, n) => { salida.textContent = `Generando etiqueta ${i} de ${n}…`; });
+        const aviso = omitidas ? ` Se salteó ${omitidas} fila${omitidas === 1 ? "" : "s"} sin código.` : "";
+        return { pdf: r.bytes, nombre: "etiquetas.pdf", nota: `${r.etiquetas} etiquetas en ${r.hojas} hoja${r.hojas === 1 ? "" : "s"} (${r.columnas}×${r.filas} por hoja).${aviso}` };
+    },
+
     async unir(f) {
         return { pdf: await unirPdfs(archivosDe(f, "archivos")), nombre: "unido.pdf" };
     },
@@ -121,6 +131,12 @@ async function mostrarResultado(salida, res) {
     const blob = res.pdf ? new Blob([res.pdf], { type: "application/pdf" }) : res.imagen || res.archivo;
     const { a, url } = _enlaceDescarga(blob, res.nombre);
     salida._urls.push(url);
+    if (res.nota) {
+        const nota = document.createElement("p");
+        nota.className = "ayuda";
+        nota.textContent = res.nota;
+        caja.appendChild(nota);
+    }
     if (res.imagen) {
         const img = document.createElement("img");
         img.src = url;
@@ -144,7 +160,7 @@ document.querySelectorAll("form[data-accion]").forEach(form => {
     form.addEventListener("submit", async ev => {
         ev.preventDefault();
         const salida = form.parentElement.querySelector("[data-salida]");
-        const boton = form.querySelector("button");
+        const boton = form.querySelector("button.btn-accion");
         boton.disabled = true;
         salida.textContent = "Procesando…";
         try {
@@ -189,6 +205,86 @@ function ajustarFormularioImposicion() {
 }
 ["modo", "pliego"].forEach(n => document.querySelector('[data-accion="imponer"]').elements[n].addEventListener("change", ajustarFormularioImposicion));
 ajustarFormularioImposicion();
+
+// ---- Etiquetas en serie (CSV) ----
+let csvEtiquetas = null; // filas del CSV elegido: lista de listas de celdas
+const formEtiquetas = document.querySelector('[data-accion="etiquetas"]');
+
+function opcionesEtiquetas(f) {
+    const pliego = texto(f, "pliego");
+    return {
+        tipo: texto(f, "tipo"), ancho: numero(f, "anchoE", 50), alto: numero(f, "altoE", 30),
+        pliego: pliego === "custom" ? [numero(f, "sw", 210), numero(f, "sh", 297)] : pliego,
+        horizontal: marcado(f, "horizontal"), margen: numero(f, "margen", 10), calle: numero(f, "calle", 2),
+        copias: Math.max(1, Math.floor(numero(f, "copias", 1))), contorno: marcado(f, "contorno"), mostrarTexto: marcado(f, "texto")
+    };
+}
+
+// Escribe cuántas etiquetas entran por hoja y, si ya hay archivo, cuántas hojas salen
+function actualizarResumenEtiquetas() {
+    const f = formEtiquetas, el = f.querySelector("[data-resumen]");
+    f.querySelector("[data-solo-medida]").hidden = f.elements.pliego.value !== "custom";
+    try {
+        const o = opcionesEtiquetas(f), g = grillaDeEtiquetas(o);
+        if (g.columnas < 1 || g.filas < 1) { el.textContent = "La etiqueta no entra en el pliego con ese margen."; return; }
+        let t = `Entran ${g.columnas}×${g.filas} = ${g.columnas * g.filas} etiquetas por hoja.`;
+        if (csvEtiquetas) {
+            const n = registrosDeCSV(csvEtiquetas, {
+                tieneEncabezado: marcado(f, "encabezado"), colCodigo: parseInt(f.elements.colCodigo.value, 10), colTexto: -1
+            }).registros.length * o.copias;
+            t += ` Con ${n} etiqueta${n === 1 ? "" : "s"} salen ${Math.ceil(n / (g.columnas * g.filas))} hoja${Math.ceil(n / (g.columnas * g.filas)) === 1 ? "" : "s"}.`;
+        }
+        el.textContent = t;
+    } catch (e) { el.textContent = ""; }
+}
+
+// Llena las listas de columnas con los títulos (o "Columna 1, 2…" si no hay títulos)
+function llenarColumnasEtiquetas() {
+    const f = formEtiquetas;
+    const filas = csvEtiquetas || [];
+    const ancho = Math.max(0, ...filas.map(r => r.length));
+    const conTitulos = marcado(f, "encabezado");
+    const nombre = i => (conTitulos && (filas[0][i] || "").trim()) || `Columna ${i + 1}`;
+    const anteriorCodigo = f.elements.colCodigo.value, anteriorTexto = f.elements.colTexto.value;
+    [f.elements.colCodigo, f.elements.colTexto].forEach(s => { s.textContent = ""; s.disabled = !filas.length; });
+    for (let i = 0; i < ancho; i++) {
+        f.elements.colCodigo.appendChild(new Option(nombre(i), i));
+        f.elements.colTexto.appendChild(new Option(nombre(i), i));
+    }
+    f.elements.colTexto.insertBefore(new Option("(ninguna: se escribe el código)", -1), f.elements.colTexto.firstChild);
+    f.elements.colCodigo.value = anteriorCodigo && anteriorCodigo < ancho ? anteriorCodigo : 0;
+    f.elements.colTexto.value = anteriorTexto && anteriorTexto < ancho ? anteriorTexto : -1;
+}
+
+formEtiquetas.elements.archivo.addEventListener("change", async e => {
+    const salida = formEtiquetas.parentElement.querySelector("[data-salida]");
+    csvEtiquetas = null;
+    const [archivo] = e.target.files;
+    try {
+        if (!archivo) throw new Error("");
+        csvEtiquetas = await leerArchivoCSV(archivo);
+        // Si la primera fila parece un código y no un título (no hay letras repetidas), igual dejamos elegir: el usuario decide
+        llenarColumnasEtiquetas();
+        salida.innerHTML = "";
+        const vista = document.createElement("pre");
+        vista.textContent = "Así se leyó el archivo (primeras filas):\n\n" + csvEtiquetas.slice(0, 6).map(r => r.join("  |  ")).join("\n");
+        salida.appendChild(vista);
+    } catch (err) {
+        llenarColumnasEtiquetas();
+        if (err.message) mostrarError(salida, err);
+    }
+    actualizarResumenEtiquetas();
+});
+formEtiquetas.elements.encabezado.addEventListener("change", () => { llenarColumnasEtiquetas(); actualizarResumenEtiquetas(); });
+formEtiquetas.addEventListener("input", actualizarResumenEtiquetas);
+formEtiquetas.addEventListener("change", actualizarResumenEtiquetas);
+formEtiquetas.elements.pliego.value = "A4";
+actualizarResumenEtiquetas();
+
+formEtiquetas.querySelector("[data-ejemplo-csv]").addEventListener("click", () => {
+    const filas = ["codigo;descripcion", "ABC-0001;Tornillo M6", "ABC-0002;Tuerca M6", "ABC-0003;Arandela 6 mm", "ABC-0004;Caño 1/2\"", "ABC-0005;Pieza ñandú"];
+    descargar(new Blob(["\uFEFF" + filas.join("\r\n") + "\r\n"], { type: "text/csv;charset=utf-8" }), "ejemplo-etiquetas.csv");
+});
 
 // ---- Pestañas ----
 const vistas = Array.from(document.querySelectorAll(".vista"));

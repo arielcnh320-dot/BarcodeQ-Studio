@@ -17,9 +17,11 @@ Tiene la misma estructura que `konica-minolta-extractor` (index + css + js por t
 |---|---|
 | `js/constantes_y_textos.js` | `TIPOS_BARRAS`, `PLIEGOS` (tamaños en mm), `MODOS_IMPOSICION`, `MM_A_PT` |
 | `js/datos.js` | utilidades: lo guardado en el equipo (`guardarPref`/`leerPref`), lectura de formularios (`numero`, `texto`, `marcado`), `descargar`, `canvasABlob`, `crearCanvas` |
+| `js/csv.js` | `leerArchivoCSV`, `parsearCSV`, `decodificarCSV`, `detectarSeparador` (CSV de Excel: `;`, comillas, acentos en windows-1252) |
 | `js/codigos.js` | `generarQR`, `generarBarras` (PNG, JPEG, SVG) y `generarCodigoPNG` |
-| `js/lectura.js` | `leerCodigos` (imagen o PDF), `leerCodigosDeCanvas` (varios códigos por imagen, reintenta a menor escala), `abrirPdfJs`, `paginaACanvas`, `imagenACanvas` |
+| `js/lectura.js` | `leerCodigos` (imagen o PDF), `leerCodigosDeCanvas` (varios códigos por imagen: reintenta a menor escala y recorre la hoja por franjas y ventanas), `abrirPdfJs`, `paginaACanvas`, `imagenACanvas` |
 | `js/imposicion.js` | `imponer` (step & repeat, N-up, cuadernillo, marcas de corte) y `planDeCaras` |
+| `js/etiquetas.js` | `generarEtiquetas` (una etiqueta por fila de un CSV, ordenadas en hojas), `grillaDeEtiquetas`, `registrosDeCSV` |
 | `js/pdf_jpeg.js` | `imagenesAPdf`, `pdfAJpeg` (JPEG o ZIP), `unirPdfs`, `insertarCodigoEnPdf`, `orientacionExif` |
 | `js/eventos.js` | `ACCIONES` (una por formulario, `data-accion` en `index.html`), vista previa y descarga del resultado, pestañas |
 | `js/inicio.js` | versión, service worker, botón "Instalar app" y aviso de versión nueva |
@@ -41,7 +43,8 @@ Copias locales con versión fija (la app funciona sin conexión y sin depender d
 ## Lo que hace cada pestaña y sus límites
 - **Código de barras**: Code 128, Code 39, EAN-13/8, UPC-A, ITF, ITF-14, Codabar, MSI y Pharmacode. Medidas en mm; los EAN/UPC calculan solos el dígito verificador. Un dato inválido muestra el error con un ejemplo.
 - **QR**: texto UTF-8 (ñ, tildes, emojis), 4 niveles de corrección, colores propios.
-- **Leer códigos**: QR y barras en JPEG/PNG o en todas las páginas de un PDF (a 200 dpi); varios códigos por imagen. Si a tamaño completo no encuentra nada, reintenta a escalas menores y con otro método de blanco y negro (un QR pegado en un PDF y pasado a imagen queda con bordes suaves y ZXing a veces falla justo a ciertos tamaños). Con resoluciones muy bajas (menos de ~120 dpi) puede no leer.
+- **Leer códigos**: QR y barras en JPEG/PNG o en todas las páginas de un PDF (a 200 dpi); varios códigos por imagen, incluso una hoja llena de etiquetas (24 de 24 a 150, 200 y 300 dpi). ZXing tiene límites que se resolvieron así: a tamaño completo falla con muchos códigos juntos o con uno chico en una hoja grande, y los códigos de barras solo se leen si la imagen que mira mide menos de ~600 px de alto. Por eso, si hay una imagen grande, se suman reintentos a menor escala, otro método de blanco y negro y un recorrido por franjas horizontales (para barras) y ventanas superpuestas (para QR), tapando de blanco cada código leído. Tarda ~2-3 s por página. Limitaciones: con resoluciones muy bajas (menos de ~120 dpi) puede no leer, y con "dibujar contorno" activado en una hoja de etiquetas a veces no encuentra todos los códigos de barras de la hoja entera (cada etiqueta por separado sí se lee).
+- **Etiquetas (CSV)**: una etiqueta por fila de un CSV (Excel en español: `;`, acentos en formato Windows, con o sin fila de títulos). Se elige la columna del código y la del texto, el tipo (QR o barras), el tamaño de la etiqueta, el pliego, el margen y el espacio entre etiquetas; la app calcula cuántas entran por hoja. La grilla empieza en el margen de arriba a la izquierda (como una hoja de etiquetas adhesivas: ajustar margen y espacio a la hoja que se use). Copias por etiqueta, texto debajo (se achica si es largo; lo que no existe en Latin-1, como emojis, sale como `?`), contorno opcional como guía de corte. Máximo 20.000 etiquetas; un dato inválido dice en qué fila del archivo está.
 - **Imposición**: repetir página, N-up, cuadernillo (8 páginas → 8|1, 2|7, 6|3, 4|5; se completa a múltiplos de 4; siempre apaisado), pliegos A5/A4/A3/SRA3/Carta/Tabloide o medida propia, calle, margen, sangrado y marcas de corte.
   - No convierte colores (CMYK), no hace trapping ni marcas de registro/barras de color. En el cuadernillo el dorso no se espeja (el orden de páginas sí es el de un duplex "voltear por el borde corto").
 - **JPEG → PDF**: los JPEG/PNG entran sin recomprimir; un JPEG con rotación EXIF (fotos de celular) se redibuja para que quede derecho.
@@ -58,8 +61,9 @@ Copias locales con versión fija (la app funciona sin conexión y sin depender d
 - `archivos`: están todos los archivos de `js/`, `lib/` y `css/` (y en la copia sin conexión de `sw.js`, en el mismo orden), `VERSION_APP` sigue en `index.html`, la app abre sin errores y sin pedir nada afuera, y abre sin conexión.
 - `codigos`: cada QR y cada tipo de código de barras se genera y se vuelve a leer igual; errores claros; varios códigos en una imagen.
 - `imposicion`: cantidad y tamaño de pliegos, orden del cuadernillo, escala de la página, marcas de corte y errores.
+- `etiquetas`: lectura del CSV (separadores, comillas, BOM, windows-1252), grilla de etiquetas por hoja, generación y relectura de las etiquetas (QR y barras, hoja llena a varias resoluciones), copias, textos raros y errores claros con el número de fila.
 - `pdf_jpeg`: imágenes → PDF (tamaños, sin recomprimir), rotación EXIF, PDF → JPEG/ZIP, unir, y códigos insertados (se leen en el PDF resultante y quedan en la posición pedida).
-- `pestanas`: las 8 pestañas, generar y descargar, leer lo descargado, mensajes de error, imposición por pantalla, última pestaña recordada y que no haya scroll horizontal en un celular (375 px).
+- `pestanas`: las 9 pestañas, generar y descargar, leer lo descargado, mensajes de error, imposición por pantalla, etiquetas desde un CSV de Excel por pantalla (columnas, resumen, copias, error con número de fila, CSV de ejemplo), última pestaña recordada y que no haya scroll horizontal en un celular (375 px).
 - No usan archivos de clientes: todo se arma dentro de la prueba.
 - Al cambiar algo de la app, agregar o ajustar la prueba que corresponda. Comprobar que una prueba nueva falle de verdad rompiendo a propósito lo que cuida (y restaurar).
 

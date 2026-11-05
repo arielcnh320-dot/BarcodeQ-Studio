@@ -74,16 +74,87 @@ function _leerTodosEnCanvas(canvasOriginal, escala, maximo) {
     return encontrados;
 }
 
+const LADO_MAXIMO_VENTANAS = 1800;
+const ALTO_FRANJA = 480; // ZXing no lee códigos de barras (1D) si la imagen que mira pasa de ~600 px de alto
+
+// Lugares donde se mira dentro de una imagen: franjas horizontales de ancho completo (para los códigos de
+// barras) y ventanas que se superponen de 2×2, 3×3 y 4×4 (para los QR, que se confunden si hay muchos juntos).
+function _ventanasDeLectura(ancho, alto) {
+    const ventanas = [];
+    if (alto > ALTO_FRANJA * 1.25) {
+        const paso = ALTO_FRANJA / 2;
+        for (let y = 0; ; y += paso) {
+            const y0 = Math.min(y, alto - ALTO_FRANJA);
+            ventanas.push({ x: 0, y: Math.round(y0), w: Math.round(ancho), h: ALTO_FRANJA });
+            if (y0 >= alto - ALTO_FRANJA) break;
+        }
+    }
+    for (const n of [2, 3, 4]) {
+        const w = Math.round(ancho / n * 1.5), h = Math.round(alto / n * 1.5);
+        if (w < 150 || h < 150) continue;
+        for (let fila = 0; fila < n; fila++) {
+            for (let col = 0; col < n; col++) {
+                ventanas.push({ x: Math.round(col * (ancho - w) / (n - 1)), y: Math.round(fila * (alto - h) / (n - 1)), w, h });
+            }
+        }
+    }
+    return ventanas;
+}
+
+// Recorre la imagen mirando esos lugares uno por uno. Sirve cuando hay muchos códigos juntos (una hoja de
+// etiquetas) o uno chico en una página grande: a hoja completa ZXing se confunde, pero en un lugar con pocos
+// códigos los lee bien. Cada código leído se tapa de blanco en la imagen de trabajo para que no moleste al leer
+// los vecinos, y se repite la vuelta mientras aparezcan códigos nuevos.
+function _leerPorVentanas(original, maximo) {
+    // Con imágenes muy grandes ZXing rinde peor: se trabaja con una copia de lado largo ~1800 px
+    const reduccion = Math.min(1, LADO_MAXIMO_VENTANAS / Math.max(original.width, original.height));
+    const trabajo = crearCanvas(original.width * reduccion, original.height * reduccion);
+    const ctxTrabajo = trabajo.getContext("2d", { willReadFrequently: true });
+    ctxTrabajo.imageSmoothingQuality = "high";
+    ctxTrabajo.drawImage(original, 0, 0, trabajo.width, trabajo.height);
+    const lugares = _ventanasDeLectura(trabajo.width, trabajo.height);
+    const vistos = new Map();
+    for (let vuelta = 0; vuelta < 3 && vistos.size < maximo; vuelta++) {
+        const antes = vistos.size;
+        for (const { x, y, w, h } of lugares) {
+            const ventana = crearCanvas(w, h);
+            const ctxVentana = ventana.getContext("2d", { willReadFrequently: true });
+            ctxVentana.drawImage(trabajo, x, y, w, h, 0, 0, w, h);
+            for (let k = 0; k < maximo; k++) {
+                const r = _leerUno(ventana);
+                if (!r) break;
+                const formato = ZXing.BarcodeFormat[r.getBarcodeFormat()];
+                vistos.set(formato + "|" + r.getText(), { tipo: formato, texto: r.getText() });
+                const puntos = r.getResultPoints() || [];
+                if (!puntos.length) break;
+                _taparCodigo(ctxVentana, ventana, formato, puntos);
+                _taparCodigo(ctxTrabajo, trabajo, formato, puntos.map(p => ({ getX: () => p.getX() + x, getY: () => p.getY() + y })));
+            }
+        }
+        if (vistos.size === antes) break;
+    }
+    return Array.from(vistos.values());
+}
+
 // Devuelve todos los códigos de un canvas. Con imágenes grandes o suavizadas (un PDF pasado a imagen) el lector
-// a veces falla a tamaño completo, así que si no encuentra nada se reintenta a escalas menores.
+// a veces falla a tamaño completo, así que si no encuentra nada se reintenta a escalas menores. En imágenes
+// del tamaño de una hoja se suma además el recorrido por ventanas, porque a hoja completa el lector suele
+// encontrar uno solo y dejar los demás.
 const ESCALAS_DE_LECTURA = [1, 0.75, 0.6, 0.5, 0.4, 0.3, 0.25];
-function leerCodigosDeCanvas(canvas, maximo = 20) {
+const LADO_MINIMO_VENTANAS = 700;
+function leerCodigosDeCanvas(canvas, maximo = 100) {
+    let resultado = [];
     for (const escala of ESCALAS_DE_LECTURA) {
         if (escala < 1 && Math.max(canvas.width, canvas.height) * escala < 250) break; // ya quedaría demasiado chica
-        const r = _leerTodosEnCanvas(canvas, escala, maximo);
-        if (r.length) return r;
+        resultado = _leerTodosEnCanvas(canvas, escala, maximo);
+        if (resultado.length) break;
     }
-    return [];
+    if (Math.max(canvas.width, canvas.height) >= LADO_MINIMO_VENTANAS) {
+        for (const c of _leerPorVentanas(canvas, maximo)) {
+            if (!resultado.some(x => x.tipo === c.tipo && x.texto === c.texto)) resultado.push(c);
+        }
+    }
+    return resultado.slice(0, maximo);
 }
 
 async function imagenACanvas(archivoOBlob) {

@@ -165,12 +165,48 @@
             <div class="salida" data-salida><span class="vacio">El PDF va a aparecer acá.</span></div>
         </section>
 
+        <!-- Etiquetas en serie desde CSV -->
+        <section id="vista-etiquetas" class="vista" data-titulo="Etiquetas (CSV)">
+            <form data-accion="etiquetas">
+                <label>Archivo CSV (se guarda desde Excel: "Guardar como → CSV")<input type="file" name="archivo" accept=".csv,.txt,text/csv,text/plain" required></label>
+                <label class="fila"><input type="checkbox" name="encabezado" checked> La primera fila tiene los títulos de las columnas</label>
+                <div class="dos">
+                    <label>Columna del código<select name="colCodigo" disabled><option>Primero elegí el archivo</option></select></label>
+                    <label>Columna del texto<select name="colTexto" disabled><option>Primero elegí el archivo</option></select></label>
+                </div>
+                <label>Tipo de código<select name="tipo" data-llenar="tipos-con-qr"></select></label>
+                <div class="dos">
+                    <label>Ancho de la etiqueta (mm)<input name="anchoE" type="number" value="50" step="0.5" min="5"></label>
+                    <label>Alto de la etiqueta (mm)<input name="altoE" type="number" value="30" step="0.5" min="5"></label>
+                </div>
+                <div class="dos">
+                    <label>Pliego<select name="pliego" data-llenar="pliegos"></select></label>
+                    <label class="fila" style="margin-top:22px"><input type="checkbox" name="horizontal"> Horizontal</label>
+                </div>
+                <div class="dos" data-solo-medida>
+                    <label>Ancho del pliego (mm)<input name="sw" type="number" value="210" min="20"></label>
+                    <label>Alto del pliego (mm)<input name="sh" type="number" value="297" min="20"></label>
+                </div>
+                <div class="dos">
+                    <label>Margen del pliego (mm)<input name="margen" type="number" value="10" step="0.5" min="0"></label>
+                    <label>Espacio entre etiquetas (mm)<input name="calle" type="number" value="2" step="0.5" min="0"></label>
+                </div>
+                <label>Copias de cada etiqueta<input name="copias" type="number" value="1" min="1" max="1000"></label>
+                <label class="fila"><input type="checkbox" name="texto" checked> Escribir el texto debajo del código</label>
+                <label class="fila"><input type="checkbox" name="contorno"> Dibujar el contorno de cada etiqueta (guía de corte)</label>
+                <p class="ayuda" data-resumen>Elegí el archivo para ver cuántas etiquetas salen.</p>
+                <button class="btn btn-accion">Generar etiquetas</button>
+                <button type="button" class="btn" data-ejemplo-csv>Descargar un CSV de ejemplo</button>
+            </form>
+            <div class="salida" data-salida><span class="vacio">Las etiquetas van a aparecer acá.</span></div>
+        </section>
+
     </div>
 
 <script>
 // Versión de la app. Tiene que quedar acá: la app compara esta versión con la del index.html publicado
 // y, si hay una nueva, muestra el botón "🔄 Actualizar app".
-const VERSION_APP = "2026.11.04-1";
+const VERSION_APP = "2026.11.04-2";
 </script>
 <!-- Librerías (copias locales en lib/, funcionan sin conexión) -->
 <script src="lib/pdf-lib.min.js"></script>
@@ -182,9 +218,11 @@ const VERSION_APP = "2026.11.04-1";
 <!-- Código de la app, en este orden -->
 <script src="js/constantes_y_textos.js"></script>
 <script src="js/datos.js"></script>
+<script src="js/csv.js"></script>
 <script src="js/codigos.js"></script>
 <script src="js/lectura.js"></script>
 <script src="js/imposicion.js"></script>
+<script src="js/etiquetas.js"></script>
 <script src="js/pdf_jpeg.js"></script>
 <script src="js/eventos.js"></script>
 <script src="js/inicio.js"></script>

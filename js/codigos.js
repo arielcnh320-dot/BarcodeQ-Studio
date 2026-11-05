@@ -34,8 +34,9 @@ async function generarQR(contenido, { formato = "png", caja = 10, margen = 4, ni
     return { blob: await canvasABlob(canvas, tipoMime(formato), 0.95), formato };
 }
 
-// Medidas en milímetros: modulo = ancho de la barra más fina, alto = altura de las barras.
-async function generarBarras(tipo, dato, { formato = "png", dpi = 300, modulo = 0.33, alto = 15, mostrarTexto = true } = {}) {
+// Medidas en milímetros: modulo = ancho de la barra más fina, alto = altura de las barras,
+// margenV = espacio blanco arriba y abajo (a los costados siempre queda el margen de 2,5 mm que exige la lectura).
+async function generarBarras(tipo, dato, { formato = "png", dpi = 300, modulo = 0.33, alto = 15, mostrarTexto = true, margenV = 2.5 } = {}) {
     const def = TIPOS_BARRAS.find(t => t.id === tipo);
     if (!def) throw new Error("Tipo de código no soportado: " + tipo);
     if (!dato) throw new Error("Falta el contenido del código");
@@ -49,6 +50,8 @@ async function generarBarras(tipo, dato, { formato = "png", dpi = 300, modulo = 
         fontSize: 2.8 * pxPorMm,
         textMargin: 0.6 * pxPorMm,
         margin: 2.5 * pxPorMm,
+        marginTop: margenV * pxPorMm,
+        marginBottom: margenV * pxPorMm,
         background: "#ffffff",
         lineColor: "#000000"
     };
